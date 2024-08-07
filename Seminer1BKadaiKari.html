@@ -1,0 +1,252 @@
+<html lang="ja">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<meta http-equiv="Content-Script-Type" content="text/javascript">
+<title>現在の天気を出力する音声対話システム</title>
+<style>
+body {
+  background-color: #f4f6f8;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  height: 100vh;
+}
+
+h1 {
+  color: #2c3e50;
+  border-left: 5px solid #2980b9;
+  padding-left: 15px;
+  border-bottom: 2px solid #2980b9;
+  font-size: 2.5em;
+  margin: 0;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.button-container {
+  display: flex;
+  gap: 20px;
+}
+
+button {
+  width: 150px;
+  font-size: 18px;
+  color: #ffffff;
+  background-color: #2980b9;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 0;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+button:hover {
+  background-color: #1c6690;
+  transform: translateY(-2px);
+}
+</style>
+</head>
+<body>
+
+<h1>Now Weather</h1>
+
+<p>
+<button id="startButton">認識開始</button>
+<button id="stopButton">認識中止</button>
+</p>
+
+<p>
+<div id="resultOutput"></div>
+</p>
+
+<script type="text/javascript">
+var response = {
+// 応答の定義
+    "北海道": "https://tenki.jp/radar/1/",
+    "青森県": "https://tenki.jp/radar/2/5/",
+    "岩手県": "https://tenki.jp/radar/2/6/",
+    "宮城県": "https://tenki.jp/radar/2/7/",
+    "秋田県": "https://tenki.jp/radar/2/8/",
+		"山形県": "https://tenki.jp/radar/2/9/",
+		"福島県": "https://tenki.jp/radar/2/10/",
+		"茨城県": "https://tenki.jp/radar/3/11/",
+		"栃木県": "https://tenki.jp/radar/3/12/",
+		"群馬県": "https://tenki.jp/radar/3/13/",
+		"埼玉県": "https://tenki.jp/radar/3/14/",
+		"千葉県": "https://tenki.jp/radar/3/15/",
+		"東京都": "https://tenki.jp/radar/3/16/",
+		"神奈川県": "https://tenki.jp/radar/3/17/",
+		"新潟県": "https://tenki.jp/radar/4/18/",
+		"富山県": "https://tenki.jp/radar/4/19/",
+		"石川県": "https://tenki.jp/radar/4/20/",
+		"福井県": "https://tenki.jp/radar/4/21/",
+		"山梨県": "https://tenki.jp/radar/3/22/",
+		"長野県": "https://tenki.jp/radar/3/23/",
+		"岐阜県": "https://tenki.jp/radar/5/24/",
+		"静岡県": "https://tenki.jp/radar/5/25/",
+		"愛知県": "https://tenki.jp/radar/5/26/",
+		"三重県": "https://tenki.jp/radar/5/27/",
+		"滋賀県": "https://tenki.jp/radar/6/28/",
+		"京都府": "https://tenki.jp/radar/6/29/",
+		"大阪府": "https://tenki.jp/radar/6/30/",
+		"兵庫県": "https://tenki.jp/radar/6/31/",
+		"奈良県": "https://tenki.jp/radar/6/32/",
+		"和歌山県": "https://tenki.jp/radar/6/33/",
+		"鳥取県": "https://tenki.jp/radar/7/34/",
+		"島根県": "https://tenki.jp/radar/7/35/",
+		"岡山県": "https://tenki.jp/radar/7/36/",
+		"広島県": "https://tenki.jp/radar/7/37/",
+		"山口県": "https://tenki.jp/radar/7/38/",
+		"徳島県": "https://tenki.jp/radar/8/39/",
+		"香川県": "https://tenki.jp/radar/8/40/",
+		"愛媛県": "https://tenki.jp/radar/8/41/",
+		"高知県": "https://tenki.jp/radar/8/42/",
+		"福岡県": "https://tenki.jp/radar/9/43/",
+		"佐賀県": "https://tenki.jp/radar/9/44/",
+		"長崎県": "https://tenki.jp/radar/9/45/",
+		"熊本県": "https://tenki.jp/radar/9/46/",
+		"大分県": "https://tenki.jp/radar/9/47/",
+		"宮崎県": "https://tenki.jp/radar/9/48/",
+		"鹿児島県": "https://tenki.jp/radar/9/49/",
+		"沖縄県": "https://tenki.jp/radar/9/50/"
+};
+
+const startButton = document.querySelector('#startButton');
+const stopButton = document.querySelector('#stopButton');
+const resultOutput = document.querySelector('#resultOutput');
+
+if (!'SpeechSynthesisUtterance' in window) {
+    alert("あなたのブラウザはSpeech Synthesis APIに未対応です。");
+}
+const tts = new SpeechSynthesisUtterance(); //TTSインスタンスの生成
+
+//読み上げ音声の設定
+tts.lang = "ja-JP";
+tts.rate = 1.0;
+tts.pitch = 1.0;
+tts.volume = 1.0;
+
+SpeechRecognition = webkitSpeechRecognition || SpeechRecognition;
+if (!'SpeechRecognition' in window) {
+    alert("あなたのブラウザはSpeech Recognition APIに未対応です。");
+}
+
+const asr = new SpeechRecognition(); //ASRインスタンスの生成
+asr.lang = "ja-JP";
+asr.interimResults = true;
+asr.continuous = true;
+
+let output = '';
+let recognizedName = '';
+let recognizedKey = '';
+
+// 認識結果が出力されたときのイベントハンドラ
+asr.onresult = function(event) {
+    let transcript = event.results[event.resultIndex][0].transcript;
+
+    if (event.results[event.resultIndex].isFinal) { // 結果が確定（Final）のとき
+        asr.abort(); // 音声認識を停止
+        output = '<br>認識結果: ' + transcript; //認識結果を表示　正しく認識しているのか確認用
+        resultOutput.innerHTML = output;
+				
+				recognizedName = transcript; //認識結果を別で格納しておく
+        
+				//正規表現からどこの都道府県を探しているのか認識する
+        let keys = Object.keys(response);
+        keys.forEach(function(key) {
+            let pattern = new RegExp('.*' + key + '.*'); //正規表現の定義
+            if(pattern.test(transcript)){ //正規表現に認識結果がマッチした時
+							recognizedKey = response[key];//認識した都道府県を記憶しておく
+            }
+        });
+        
+        getCoordinates(transcript); //緯度・経度を取得する
+    } else { // 結果がまだ未確定のとき
+        resultOutput.innerHTML = output + '<br><span style="color:#ddd;">' + transcript + '</span>';
+    }
+}
+
+// 開始ボタンのイベントハンドラ
+startButton.addEventListener('click', function() {
+    asr.start();
+})
+
+// 停止ボタンのイベントハンドラ
+stopButton.addEventListener('click', function() {
+    asr.stop();
+})
+
+// 地名から緯度経度を取得する関数
+function getCoordinates(location) {
+  var appid = 'dj00aiZpPWVuRU1xV1g0UW5pdyZzPWNvbnN1bWVyc2VjcmV0Jng9ZmE-';
+  var url = "https://map.yahooapis.jp/geocode/V1/geoCoder?appid=" + appid + "&query=" + encodeURI(location) + "&output=json&callback=processCoordinates";
+  callJSONP(url);
+}
+
+// 緯度経度を処理し、降水強度を取得する関数
+function processCoordinates(result) {
+  if (result.Feature.length > 0) {
+    var coordinates = result.Feature[0].Geometry.Coordinates;
+    getWeather(coordinates);
+  } else {
+    resultOutput.innerHTML = "地名が見つかりませんでした";
+    tts.text = "地名が見つかりませんでした";
+    speechSynthesis.speak(tts);
+  }
+}
+
+// 緯度経度から降水強度を取得する関数
+function getWeather(coordinates) {
+  var appid = 'dj00aiZpPWVuRU1xV1g0UW5pdyZzPWNvbnN1bWVyc2VjcmV0Jng9ZmE-';
+  var url = "https://map.yahooapis.jp/weather/V1/place?appid=" + appid + "&coordinates=" + encodeURI(coordinates) + "&output=json&callback=showWeather";
+  callJSONP(url);
+}
+
+function callJSONP(url) {
+  var target = document.createElement('script');
+  target.charset = 'utf-8';
+  target.src = url;
+  document.body.appendChild(target);
+}
+
+// 降水強度から天気を判断し、結果を表示する関数
+function showWeather(result) {
+  let output = '';
+
+  if (result.ResultInfo.Count > 0) {
+    let name = recognizedName;
+    let weather_rainfall = result.Feature[0].Property.WeatherList.Weather[0].Rainfall;
+		if(weather_rainfall < 1.0) { //降水強度で出力が変化する
+			output += name + "の天気は晴れです。" + "<br>";
+			output += "詳しい天気はこちらからご覧ください:";
+		} else if (weather_rainfall < 5.0) {
+			output += name + "の天気は小雨です。" + "<br>";
+			output += "詳しい天気はこちらからご覧ください:";
+		} else if (weather_rainfall < 10.0) {
+			output += name + "の天気は雨です。" + "<br>";
+			output += "詳しい天気はこちらからご覧ください:";
+		} else {
+			output += name + "の天気は大雨です。" + "<br>";
+			output += "詳しい天気はこちらからご覧ください:";
+		}
+    tts.text = output;
+    speechSynthesis.speak(tts);
+  } else {
+    output = "天気情報が見つかりませんでした";
+    tts.text = output;
+    speechSynthesis.speak(tts);
+  }
+	output += recognizedKey; //URLの表示　ここは読み上げなくていいのでSpeechSynthesisの後で加える
+  resultOutput.innerHTML = output;
+}
+</script>
+
+</body>
+</html>
